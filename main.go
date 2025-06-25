@@ -36,10 +36,25 @@ func main() {
 		return
 	}
 
+	// Reset file test.txt untuk memulai dari awal
+	resetTestFile()
+
 	// Konfigurasi Git untuk performa maksimal
 	setupGitForPerformance()
 
 	buatFakeCommit(targetCommits)
+}
+
+func resetTestFile() {
+	// Hapus file test.txt jika ada
+	os.Remove("test.txt")
+
+	// Buat file baru yang kosong
+	file, err := os.Create("test.txt")
+	if err == nil {
+		file.WriteString("Starting commit process\n")
+		file.Close()
+	}
 }
 
 func setupGitForPerformance() {
@@ -70,9 +85,13 @@ func buatFakeCommit(targetCommits int) {
 			fmt.Printf("\033[31mError: %s\033[0m\n", err)
 			return
 		}
-		fmt.Fprintf(file, "Commit for %s\n", time.Now().Format("2006-01-02 15:04:05"))
+		fmt.Fprintf(file, "Starting commit process\n")
 		file.Close()
 	}
+
+	// Add file test.txt ke git jika belum ada
+	exec.Command("git", "add", "test.txt").Run()
+	exec.Command("git", "commit", "-m", "Initial commit for test.txt").Run()
 
 	// Counter atomic untuk tracking jumlah commit yang sudah selesai
 	var commitsSelesai int64 = 0
@@ -137,6 +156,11 @@ func buatFakeCommit(targetCommits int) {
 
 	// Tunggu semua worker selesai
 	wg.Wait()
+
+	// Pastikan progress bar menampilkan 100%
+	fmt.Printf("\r\033[32m[%s] %d/%d commits \033[36m(100%%) - Completed!\033[0m",
+		strings.Repeat("#", 30), targetCommits, targetCommits)
+
 	done <- true
 
 	// Hitung total waktu dan rate
@@ -170,9 +194,10 @@ func batchWorker(id int, batchJobs <-chan int, commitsSelesai *int64, wg *sync.W
 		waktuSekarang := time.Now()
 		formatWaktu := waktuSekarang.Format("2006-01-02 15:04:05")
 
-		// Generate semua konten sekaligus
+		// Generate semua konten sekaligus dengan nomor commit yang benar
 		for i := 0; i < batchSize; i++ {
-			buffer.WriteString(fmt.Sprintf("Commit %d - %s\n", startID+i, formatWaktu))
+			commitID := startID + i
+			buffer.WriteString(fmt.Sprintf("Commit %d - %s\n", commitID, formatWaktu))
 		}
 
 		// Tulis semua perubahan ke file dalam satu operasi
